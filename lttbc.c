@@ -39,7 +39,7 @@ static PyObject* downsample(PyObject *self, PyObject *args) {
     const Py_ssize_t data_length = (Py_ssize_t)PyArray_DIM(x_array, 0);
     if (threshold >= data_length || threshold <= 0) {
         // Nothing to do!
-        PyObject *value = Py_BuildValue("OO", x_array, y_array);
+        PyObject *value = Py_BuildValue("OOO", x_array, y_array, Py_None);
         Py_DECREF(x_array);
         Py_DECREF(y_array);
         return value;
@@ -56,9 +56,12 @@ static PyObject* downsample(PyObject *self, PyObject *args) {
         PyArray_DescrFromType(NPY_DOUBLE), 0);
     PyArrayObject *sampled_y = (PyArrayObject *)PyArray_Empty(1, dims,
         PyArray_DescrFromType(NPY_DOUBLE), 0);
+    PyArrayObject *sampled_idx = (PyArrayObject *)PyArray_Empty(1, dims,
+        PyArray_DescrFromType(NPY_INTP), 0);
     // Get a pointer to its data
     double *sampled_x_data = (double*)PyArray_DATA(sampled_x);
     double *sampled_y_data = (double*)PyArray_DATA(sampled_y);
+    Py_ssize_t *sampled_idx_data = (Py_ssize_t*)PyArray_DATA(sampled_idx);
 
     // The main loop here!
     Py_ssize_t sampled_index = 0;
@@ -83,6 +86,7 @@ static PyObject* downsample(PyObject *self, PyObject *args) {
     else {
          sampled_y_data[sampled_index] = 0.0;
     }
+    sampled_idx_data[0] = 0;
     sampled_index++;
     Py_ssize_t i;
     for (i = 0; i < threshold - 2; ++i) {
@@ -125,6 +129,7 @@ static PyObject* downsample(PyObject *self, PyObject *args) {
         // Pick this point from the bucket
         sampled_x_data[sampled_index] = max_area_point_x;
         sampled_y_data[sampled_index] = max_area_point_y;
+        sampled_idx_data[sampled_index] = next_a;
         sampled_index++;
 
         // Current a becomes the next_a (chosen b)
@@ -146,15 +151,17 @@ static PyObject* downsample(PyObject *self, PyObject *args) {
     else {
         sampled_y_data[sampled_index] = 0.0;
     }
+    sampled_idx_data[sampled_index] = data_length - 1;
 
     // Provide our return value
-    PyObject *value = Py_BuildValue("OO", sampled_x, sampled_y);
+    PyObject *value = Py_BuildValue("OOO", sampled_x, sampled_y, sampled_idx);
 
     // And remove the references!
     Py_DECREF(x_array);
     Py_DECREF(y_array);
     Py_XDECREF(sampled_x);
     Py_XDECREF(sampled_y);
+    Py_XDECREF(sampled_idx);
 
     return value;
 
